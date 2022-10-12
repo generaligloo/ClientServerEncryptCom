@@ -37,7 +37,7 @@ public class Server
                 {
                     bytes = new byte[1024];
                     int bytesRec = handler.Receive(bytes);
-                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                    data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
                     if (data.IndexOf("<F>") > -1)
                     {
                         break;
@@ -50,13 +50,13 @@ public class Server
                     case "BRUT":
                         #region Brut
                         data = null;
-                        byte[] msg = Encoding.ASCII.GetBytes("ok pour brut");
+                        byte[] msg = Encoding.UTF8.GetBytes("ok pour brut");
                         handler.Send(msg);
                         while (true)
                         {
                             bytes = new byte[1024];
                             int bytesRec = handler.Receive(bytes);
-                            data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
                             if (data.IndexOf("<F>") > -1)
                             {
                                 break;
@@ -65,7 +65,7 @@ public class Server
 
                         Console.WriteLine("Text received : {0}", data);
 
-                        msg = Encoding.ASCII.GetBytes(data);
+                        msg = Encoding.UTF8.GetBytes(data);
                         handler.Send(msg);
                         data = null;
                         #endregion
@@ -73,13 +73,13 @@ public class Server
                     case "TRIPLEDES":
                         #region DES
                         data = null;
-                        msg = Encoding.ASCII.GetBytes("ok pour tripleDES");
+                        msg = Encoding.UTF8.GetBytes("ok pour tripleDES");
                         handler.Send(msg);
                         while (true)
                         {
                             bytes = new byte[1024];
                             int bytesRec = handler.Receive(bytes);
-                            data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
                             if (data.IndexOf("<F>") > -1)
                             {
                                 break;
@@ -87,7 +87,7 @@ public class Server
                         }
                         Console.WriteLine("Text received : {0}", data);
                         Console.WriteLine("Text decrypted : {0}", DES_Decrypt(data));
-                        msg = Encoding.ASCII.GetBytes(data);
+                        msg = Encoding.UTF8.GetBytes(data);
                         handler.Send(msg);
                         data = null;
                         #endregion
@@ -95,21 +95,33 @@ public class Server
                     case "AES":
                         #region AES
                         data = null;
-                        msg = Encoding.ASCII.GetBytes("ok pour AES");
+                        msg = Encoding.UTF8.GetBytes("ok pour AES.");
+                        Console.WriteLine("- Envoi réponse au client ...\n");
                         handler.Send(msg);
+                        bytes = new byte[32];
+                        Console.WriteLine("- Demande de clé...");
+                        int bytesRecKey = handler.Receive(bytes);
+                        byte[] key = bytes;
+                        Console.WriteLine("Clé: " + BitConverter.ToString(key));
+                        data = null;
+                        Console.WriteLine("- ACK clé client ...");
+                        msg = Encoding.UTF8.GetBytes("Clé recu.");
+                        handler.Send(msg);
+                        Console.WriteLine("- Reception du texte crypté ...");
                         while (true)
                         {
                             bytes = new byte[1024];
                             int bytesRec = handler.Receive(bytes);
-                            data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
                             if (data.IndexOf("<F>") > -1)
                             {
                                 break;
                             }
                         }
-                        Console.WriteLine(data);
-                        Console.WriteLine("Text decrypted : {0}", AES_Decrypt(data, SECU_KEY));
-                        msg = Encoding.ASCII.GetBytes(data);
+                        string msgDec = AES_decrypt(data, key);
+                        Console.WriteLine("- Texte décrypté => " + msgDec + "\n");
+                        Console.WriteLine("- Verification auprès du client.");
+                        msg = Encoding.UTF8.GetBytes(msgDec);
                         handler.Send(msg);
                         data = null;
                         #endregion
@@ -131,40 +143,41 @@ public class Server
         Console.ReadKey();
     }
 
-    public static string AES_Decrypt(string TextToDecrypt, string pass)
+    public static string AES_decrypt(string TextToDecrypt, byte[] key)
     {
+        Console.WriteLine("------------AES_decrypt--------------");
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
-        byte[] cipherText = Encoding.ASCII.GetBytes(TextToDecrypt);
-        Console.WriteLine(TextToDecrypt);
-        Console.WriteLine(cipherText.Length);
-        string plaintext;
-
-        // Create an Aes object
-        // with the specified key and IV.
-        byte[] Key, IV;
-        UnicodeEncoding UE = new UnicodeEncoding();
+        Console.WriteLine("Texte crypté  => " + TextToDecrypt + "\n");
+        string plaintext = null;
+        byte[] cipherTextCombined = Convert.FromBase64String(TextToDecrypt);
         using (Aes aesAlg = Aes.Create())
         {
-            byte[] passwordBytes = UE.GetBytes(pass);
-            Key = SHA256Managed.Create().ComputeHash(passwordBytes);
-            IV = MD5.Create().ComputeHash(passwordBytes);
-            aesAlg.Key = Key;
-            aesAlg.Mode = CipherMode.ECB;
+            Console.WriteLine(
+            "Config:\n"+
+            "aesAlg.KeySize = 256;\n" +
+            "aesAlg.BlockSize = 128;\n" +
+            "aesAlg.Padding = PaddingMode.PKCS7;\n" +
+            "aesAlg.Mode = CipherMode.CBC;");
+            aesAlg.KeySize = 256;
+            aesAlg.BlockSize = 128;
             aesAlg.Padding = PaddingMode.PKCS7;
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.GenerateIV();
+            aesAlg.Key = key;
+            byte[] IV = new byte[aesAlg.BlockSize / 8];
+            byte[] cipherText = new byte[cipherTextCombined.Length - IV.Length];
+            Array.Copy(cipherTextCombined, IV, IV.Length);
+            Array.Copy(cipherTextCombined, IV.Length, cipherText, 0, cipherText.Length);
+            Console.WriteLine("Clé: " + BitConverter.ToString(key));
+            Console.WriteLine("Taille clé: " + key.Length);
+            Console.WriteLine("Texte: " + BitConverter.ToString(cipherTextCombined));
+            Console.WriteLine("Taille texte: " + cipherText.Length);
             aesAlg.IV = IV;
-
+            aesAlg.Mode = CipherMode.CBC;
             ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-            using (MemoryStream msDecrypt = new MemoryStream())
-            {
-                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Write))
-                {
-                    csDecrypt.Write(cipherText, 0, cipherText.Length);
-                }
-                byte[]tmp = msDecrypt.ToArray();
-                plaintext = Encoding.ASCII.GetString(tmp);
-            }
+            plaintext = Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
         }
+        Console.WriteLine("------------FIN AES_decrypt--------------");
         return plaintext;
     }
 
@@ -198,6 +211,9 @@ public class Server
 
         return UTF8Encoding.UTF8.GetString(MyresultArray);
     }
+
+
+
     /*
     public static byte[] CreateRandomSalt(int length)
     {

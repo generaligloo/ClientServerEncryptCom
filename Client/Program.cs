@@ -37,17 +37,17 @@ public class Client
                         case "1":
 
                             #region Brut
-                            byte[] msgBRUT = Encoding.ASCII.GetBytes("BRUT<F>");
+                            byte[] msgBRUT = Encoding.UTF8.GetBytes("BRUT<F>");
                             int bytesSentBRUT = sender.Send(msgBRUT);
                             int bytesRec = sender.Receive(bytes);
-                            Console.WriteLine("Server: {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec));
+                            Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
 
-                            byte[] msg = Encoding.ASCII.GetBytes("This is a test<F>");
+                            byte[] msg = Encoding.UTF8.GetBytes("This is a test<F>");
                             int bytesSent = sender.Send(msg);
 
                             // Receive the response from the remote device.
                             bytesRec = sender.Receive(bytes);
-                            Console.WriteLine("Echoed test = {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec));
+                            Console.WriteLine("Echoed test = {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
 
                             #endregion Brut
 
@@ -56,17 +56,16 @@ public class Client
                         case "2":
 
                             #region DES
-                            byte[] msgTDES = Encoding.ASCII.GetBytes("TRIPLEDES<F>");
+                            byte[] msgTDES = Encoding.UTF8.GetBytes("TRIPLEDES<F>");
                             int bytesSentTDES = sender.Send(msgTDES);
                             bytesRec = sender.Receive(bytes);
-                            Console.WriteLine("Server: {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec));
+                            Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
 
-                            byte[] msg1 = Encoding.ASCII.GetBytes(DES_Encrypt("This is a test") + "<F>");
+                            byte[] msg1 = Encoding.UTF8.GetBytes(DES_Encrypt("This is a test") + "<F>");
                             int bytesSent1 = sender.Send(msg1);
 
-                            // Receive the response from the remote device.
                             int bytesRec1 = sender.Receive(bytes);
-                            Console.WriteLine("Echoed test = {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec1));
+                            Console.WriteLine("Echoed test = {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec1));
 
                             #endregion DES
 
@@ -75,23 +74,40 @@ public class Client
                         case "3":
 
                             #region AES
-                            byte[] msgAES = Encoding.ASCII.GetBytes("AES<F>");
-                            int bytesSentAES = sender.Send(msgAES);
-                            bytesRec = sender.Receive(bytes);
-                            Console.WriteLine("Server: {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec));
-                            byte[] msg2 = AES_encrypt("This is a test", SECU_KEY);
-                            string strAES = Encoding.ASCII.GetString(msg2) + "<F>";
-                            Console.WriteLine(strAES);
-                            byte[] msgAES2 = Encoding.ASCII.GetBytes(strAES);
-                            Console.WriteLine("-----------TEST------------");
-                            string msgTEST = Encoding.ASCII.GetString(msgAES2);
-                            //Console.WriteLine(AES_Decrypt(msgTEST, SECU_KEY));
-                            Console.WriteLine("---------------------------");
-                            int bytesSent2 = sender.Send(msgAES2);
+                            using (Aes myAesKey = Aes.Create())
+                            {
+                                myAesKey.KeySize = 256;
+                                myAesKey.GenerateKey();
+                                byte[] key = myAesKey.Key;
 
-                            // Receive the response from the remote device.
-                            int bytesRec2 = sender.Receive(bytes);
-                            Console.WriteLine("Echoed test = {0}", Encoding.ASCII.GetString(bytes, 0, bytesRec2));
+                                //commande
+                                byte[] msgAES = Encoding.UTF8.GetBytes("AES<F>");
+                                int bytesSentAES = sender.Send(msgAES);
+                                bytesRec = sender.Receive(bytes);
+                                Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+
+                                //clé
+                                Console.WriteLine("Clé a envoyer :" + BitConverter.ToString(key));
+                                bytesSentAES = sender.Send(key);
+                                bytesRec = sender.Receive(bytes);
+                                Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+
+                                //Décryptage en local
+                                string msg2 = AES_encrypt("This is a test", key) + "<F>";
+                                /*
+                                Console.WriteLine("---test local---\n");
+                                Console.WriteLine("1.Texte non crypté: This is a test\n");
+                                Console.WriteLine("2.texte crypté: "+msg2 + "\n");
+                                Console.WriteLine("3.texte décrypté: "+AES_decrypt(msg2,key) + "\n");
+                                Console.WriteLine("---fin du test---\n");
+                                */
+                                //texte
+                                Console.WriteLine("Texte crypté: " + msg2 + "\n");
+                                byte[] msgAES2 = Encoding.UTF8.GetBytes(msg2);
+                                int bytesSent2 = sender.Send(msgAES2);
+                                int bytesRec2 = sender.Receive(bytes);
+                                Console.WriteLine("Echoed test = {0} \n", Encoding.UTF8.GetString(bytes, 0, bytesRec2));
+                            }
                             #endregion
                             break;
 
@@ -128,7 +144,6 @@ public class Client
             Console.WriteLine(e.ToString());
         }
     }
-
     public static string DES_Encrypt(string TextToEncrypt)
     {
         byte[] MyEncryptedArray = Encoding.UTF8.GetBytes(TextToEncrypt); //transfo string en bytes
@@ -159,84 +174,69 @@ public class Client
         return Convert.ToBase64String(MyresultArray, 0, MyresultArray.Length);
     }
 
-    public static byte[] AES_encrypt(string plainText, string pass)
+    public static string AES_encrypt(string plainText, byte[] key)
     {
-        //test debut d'encryption 
-        byte[] MyEncryptedArray = Encoding.ASCII.GetBytes(plainText); //transfo string en bytes
-        /*
-        MD5CryptoServiceProvider MyMD5CryptoService = new MD5CryptoServiceProvider();
-        byte[] MysecurityKeyArray = MyMD5CryptoService.ComputeHash(UTF8Encoding.UTF8.GetBytes(SECU_KEY));
-        Console.WriteLine(BitConverter.ToString(MysecurityKeyArray));
-        
-        MyMD5CryptoService.Clear();
-        //md5 hash la clé
-        */
-        byte[] encrypted, Key, IV;
-
-        UnicodeEncoding UE = new UnicodeEncoding();
-        
+        Console.WriteLine("------------AES_encrypt--------------");
+        Console.WriteLine("Texte non crypté  => " + plainText + "\n");
+        byte[] IV;
+        byte[] encrypted;
+        byte[] buffer = Encoding.UTF8.GetBytes(plainText);
         using (Aes aesAlg = Aes.Create())
         {
-            byte[] passwordBytes = UE.GetBytes(pass);
-            Key = SHA256Managed.Create().ComputeHash(passwordBytes);
-            IV = MD5.Create().ComputeHash(passwordBytes);
-            aesAlg.Key = Key;
-            aesAlg.Mode = CipherMode.ECB;
+            Console.WriteLine(
+            "Config:\n" +
+            "aesAlg.KeySize = 256;\n" +
+            "aesAlg.BlockSize = 128;\n" +
+            "aesAlg.Padding = PaddingMode.PKCS7;\n" +
+            "aesAlg.Mode = CipherMode.CBC;");
+            aesAlg.KeySize = 256;
+            aesAlg.BlockSize = 128;
             aesAlg.Padding = PaddingMode.PKCS7;
-            aesAlg.IV = IV;
-
-            ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
-
-            using (MemoryStream msEncrypt = new MemoryStream())
-            {
-                using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-                {
-                    csEncrypt.Write(MyEncryptedArray, 0, MyEncryptedArray.Length);
-                }
-                encrypted = msEncrypt.ToArray();
-            }
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.Key = key;
+            aesAlg.GenerateIV();
+            IV = aesAlg.IV;
+            var encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+            encrypted = encryptor.TransformFinalBlock(buffer, 0, buffer.Length);
         }
-        //test à la fin de l'encryption
-        Console.WriteLine(Encoding.ASCII.GetString(encrypted));
-        return encrypted;
+        var combinedIvCt = new byte[IV.Length + encrypted.Length];
+        Array.Copy(IV, 0, combinedIvCt, 0, IV.Length);
+        Array.Copy(encrypted, 0, combinedIvCt, IV.Length, encrypted.Length);
+        Console.WriteLine("Texte crypté  => "+ BitConverter.ToString(combinedIvCt));
+        Console.WriteLine("------------FIN encrypt--------------");
+        return Convert.ToBase64String(combinedIvCt);
     }
-    public static string AES_Decrypt(string TextToDecrypt, string pass)
+
+    public static string AES_decrypt(string TextToDecrypt, byte[] key)
     {
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
-        byte[] cipherText = Encoding.ASCII.GetBytes(TextToDecrypt);
         Console.WriteLine(TextToDecrypt);
-        Console.WriteLine(cipherText.Length);
-        string plaintext;
-
-        // Create an Aes object
-        // with the specified key and IV.
-        byte[] Key, IV;
-        UnicodeEncoding UE = new UnicodeEncoding();
+        string plaintext = null;
+        byte[] cipherTextCombined = Convert.FromBase64String(TextToDecrypt);
         using (Aes aesAlg = Aes.Create())
         {
-            byte[] passwordBytes = UE.GetBytes(pass);
-            Key = SHA256Managed.Create().ComputeHash(passwordBytes);
-            IV = MD5.Create().ComputeHash(passwordBytes);
-            aesAlg.Key = Key;
+            aesAlg.KeySize = 256;
+            aesAlg.BlockSize = 128;
+            aesAlg.Padding = PaddingMode.PKCS7;
             aesAlg.Mode = CipherMode.CBC;
-            aesAlg.Padding = PaddingMode.Zeros;
+            aesAlg.Key = key;
+            byte[] IV = new byte[aesAlg.BlockSize / 8];
+            byte[] cipherText = new byte[cipherTextCombined.Length - IV.Length];
+
+            Array.Copy(cipherTextCombined, IV, IV.Length);
+            Array.Copy(cipherTextCombined, IV.Length, cipherText, 0, cipherText.Length);
+            Console.WriteLine("Clé: " + BitConverter.ToString(key));
+            Console.WriteLine("Taille clé: " + key.Length);
+            Console.WriteLine("Texte: "+BitConverter.ToString(cipherText));
+            Console.WriteLine("Taille texte: " + cipherText.Length);
             aesAlg.IV = IV;
-
+            aesAlg.Mode = CipherMode.CBC;
             ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-            using (MemoryStream msDecrypt = new MemoryStream())
-            {
-                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Write))
-                {
-                    csDecrypt.Write(cipherText, 0, cipherText.Length);
-                }
-                byte[] tmp = msDecrypt.ToArray();
-                plaintext = Encoding.ASCII.GetString(tmp);
-            }
+            plaintext = Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText,0,cipherText.Length));
         }
+
         return plaintext;
     }
-
 
     public static int DisplayMenu()
     {
