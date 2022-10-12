@@ -207,7 +207,7 @@ public class Client
         return Convert.ToBase64String(combinedIvCt);
     }
 
-    public static string AES_decrypt(string TextToDecrypt, byte[] key)
+    /*public static string AES_decrypt(string TextToDecrypt, byte[] key)
     {
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
         Console.WriteLine(TextToDecrypt);
@@ -236,7 +236,7 @@ public class Client
         }
 
         return plaintext;
-    }
+    }*/
 
     public static int DisplayMenu()
     {
