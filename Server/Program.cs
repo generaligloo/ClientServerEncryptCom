@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Text;
 
@@ -95,31 +96,36 @@ public class Server
                         break;
                     case "AES":
                         #region AES
+                        //recpetion commande 2
                         data = null;
-                        //2
                         msg = Encoding.UTF8.GetBytes("ok pour AES.");
                         Console.WriteLine("- Envoi réponse au client ...\n");
-                        handler.Send(msg);
-
+                        handler.Send(msg); //envoie réponse 3
                         ECDH = new ECDiffieHellmanCng
                         {
                             KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
                             HashAlgorithm = CngAlgorithm.Sha256
                         };
-                        byte[] ServerPubKey = ECDH.PublicKey.ToByteArray();
+                        byte[] ServerPubKey = ECDH.PublicKey.ToByteArray(); //clé publique server
                         msg = ServerPubKey;
+                        Console.WriteLine("Clé serveur: " + BitConverter.ToString(ServerPubKey) + "\n");
                         Console.WriteLine("- Envoi clé publique\n");
-                        handler.Send(msg);
+                        handler.Send(msg);//envoie la clé publique 5
 
-                        bytes = new byte[32];
-                        Console.WriteLine("- Demande de clé...");
+                        //recetpion clé client 8
+                        bytes = new byte[140];
                         int bytesRecKey = handler.Receive(bytes);
-                        byte[] key = bytes;
-                        Console.WriteLine("Clé: " + BitConverter.ToString(key));
+                        byte[] ClientPubKey = bytes;
+                        byte[] derivedKey = ECDH.DeriveKeyMaterial(CngKey.Import(ClientPubKey, CngKeyBlobFormat.EccPublicBlob));
+                        Console.WriteLine("Clé client: " + BitConverter.ToString(ClientPubKey)+"\n");
+                        Console.WriteLine("Clé dérivé: " + BitConverter.ToString(derivedKey) + "\n");
                         data = null;
                         Console.WriteLine("- ACK clé client ...");
+                        //envoie acc de recpet clé client 9
                         msg = Encoding.UTF8.GetBytes("Clé recu.");
                         handler.Send(msg);
+
+                        //recept texte crypt 12
                         Console.WriteLine("- Reception du texte crypté ...");
                         while (true)
                         {
@@ -131,7 +137,7 @@ public class Server
                                 break;
                             }
                         }
-                        string msgDec = AES_decrypt(data, key);
+                        string msgDec = AES_DH_decrypt(data, derivedKey);
                         Console.WriteLine("- Texte décrypté => " + msgDec + "\n");
                         Console.WriteLine("- Verification auprès du client.");
                         msg = Encoding.UTF8.GetBytes(msgDec);
@@ -191,6 +197,44 @@ public class Server
             plaintext = Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
         }
         Console.WriteLine("------------FIN AES_decrypt--------------");
+        return plaintext;
+    }
+
+    public static string AES_DH_decrypt(string TextToDecrypt, byte[] Derivedkey)
+    {
+        Console.WriteLine("------------AES_DH_decrypt--------------");
+        TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
+        Console.WriteLine("Texte crypté  => " + TextToDecrypt + "\n");
+        string plaintext = null;
+        byte[] cipherTextCombined = Convert.FromBase64String(TextToDecrypt);
+        using (Aes aesAlg = Aes.Create())
+        {
+            Console.WriteLine(
+            "Config:\n" +
+            "aesAlg.KeySize = 256;\n" +
+            "aesAlg.BlockSize = 128;\n" +
+            "aesAlg.Padding = PaddingMode.PKCS7;\n" +
+            "aesAlg.Mode = CipherMode.CBC;");
+            aesAlg.KeySize = 256;
+            aesAlg.BlockSize = 128;
+            aesAlg.Padding = PaddingMode.PKCS7;
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.GenerateIV();
+            aesAlg.Key = Derivedkey;
+            byte[] IV = new byte[aesAlg.BlockSize / 8];
+            byte[] cipherText = new byte[cipherTextCombined.Length - IV.Length];
+            Array.Copy(cipherTextCombined, IV, IV.Length);
+            Array.Copy(cipherTextCombined, IV.Length, cipherText, 0, cipherText.Length);
+            Console.WriteLine("Clé: " + BitConverter.ToString(Derivedkey));
+            Console.WriteLine("Taille clé: " + Derivedkey.Length);
+            Console.WriteLine("Texte: " + BitConverter.ToString(cipherTextCombined));
+            Console.WriteLine("Taille texte: " + cipherText.Length);
+            aesAlg.IV = IV;
+            aesAlg.Mode = CipherMode.CBC;
+            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+            plaintext = Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
+        }
+        Console.WriteLine("------------FIN AES_DH_decrypt--------------");
         return plaintext;
     }
 
