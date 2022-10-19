@@ -2,12 +2,12 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 public class Client
 {
     private const string SECU_KEY = "TestSampleKey";
-
     public static void Main(String[] args)
     {
         StartClient();
@@ -17,7 +17,7 @@ public class Client
     public static void StartClient()
     {
         byte[] bytes = new byte[1024];
-
+        ECDiffieHellmanCng ECDH = null;
         try
         {
             bool exit = false;
@@ -76,24 +76,36 @@ public class Client
                             #region AES
                             using (Aes myAesKey = Aes.Create())
                             {
-                                myAesKey.KeySize = 256;
-                                myAesKey.GenerateKey();
-                                byte[] key = myAesKey.Key;
 
-                                //commande
+                                ECDH = new ECDiffieHellmanCng
+                                {
+                                    KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
+                                    HashAlgorithm = CngAlgorithm.Sha256
+                                };
+                                byte[] ClientPubKey = ECDH.PublicKey.ToByteArray();
+
+                                //commande 1
                                 byte[] msgAES = Encoding.UTF8.GetBytes("AES<F>");
                                 int bytesSentAES = sender.Send(msgAES);
                                 bytesRec = sender.Receive(bytes);
                                 Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+                                //recoit la clé 3
+                                int bytesRecKey = sender.Receive(bytes);
+                                byte[] ServerPubkey = bytes;
+                                Console.WriteLine("Clé publique du serveur :" + BitConverter.ToString(ServerPubkey));
 
-                                //clé
-                                Console.WriteLine("Clé a envoyer :" + BitConverter.ToString(key));
-                                bytesSentAES = sender.Send(key);
-                                bytesRec = sender.Receive(bytes);
-                                Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+                                CngKey keyImp = CngKey.Import(ServerPubkey, CngKeyBlobFormat.EccPublicBlob);
+                                var derivedKey = ECDH.DeriveKeyMaterial(keyImp);
+
+                                myAesKey.Key = derivedKey;
+                                
+
+                                //bytesSentAES = sender.Send(key);
+                                //bytesRec = sender.Receive(bytes);
+                                //Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
 
                                 //Décryptage en local
-                                string msg2 = AES_encrypt("This is a test", key) + "<F>";
+                                string msg2 = AES_encrypt("This is a test", derivedKey) + "<F>";
                                 /*
                                 Console.WriteLine("---test local---\n");
                                 Console.WriteLine("1.Texte non crypté: This is a test\n");

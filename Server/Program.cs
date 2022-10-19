@@ -17,6 +17,7 @@ public class Server
 
     public static void StartServer()
     {
+        ECDiffieHellmanCng ECDH = null;
         IPHostEntry host = Dns.GetHostEntry("127.0.0.1");
         IPAddress ipAddress = host.AddressList[0];
         IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 11000);
@@ -95,9 +96,21 @@ public class Server
                     case "AES":
                         #region AES
                         data = null;
+                        //2
                         msg = Encoding.UTF8.GetBytes("ok pour AES.");
                         Console.WriteLine("- Envoi réponse au client ...\n");
                         handler.Send(msg);
+
+                        ECDH = new ECDiffieHellmanCng
+                        {
+                            KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
+                            HashAlgorithm = CngAlgorithm.Sha256
+                        };
+                        byte[] ServerPubKey = ECDH.PublicKey.ToByteArray();
+                        msg = ServerPubKey;
+                        Console.WriteLine("- Envoi clé publique\n");
+                        handler.Send(msg);
+
                         bytes = new byte[32];
                         Console.WriteLine("- Demande de clé...");
                         int bytesRecKey = handler.Receive(bytes);
