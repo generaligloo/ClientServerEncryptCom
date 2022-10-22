@@ -151,8 +151,7 @@ public class Client
                             #endregion
                             break;
 
-
-                        case "8":
+                        case "6":
 
                             exit = true;
 
@@ -308,9 +307,7 @@ public class Client
         Console.WriteLine("3. Communication AES");
         Console.WriteLine("4. Hash SHA1");
         Console.WriteLine("5. Communication HMAC-MD5");
-        Console.WriteLine("6. Communication SHA1-RSA");
-        Console.WriteLine("7. Communication RSA et certificat");
-        Console.WriteLine("\n8. Exit");
+        Console.WriteLine("\n6. Exit");
         var result = Console.ReadLine();
         return Convert.ToInt32(result);
     }
