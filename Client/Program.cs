@@ -124,7 +124,7 @@ public class Client
                             bytesRec = sender.Receive(bytes);
                             Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
 
-                            msgSHA1 = Encoding.UTF8.GetBytes(SHA1_HASH(SECU_KEY) + "<F>");
+                            msgSHA1 = Encoding.UTF8.GetBytes(SHA1_HASH("This is a test") + "<F>");
                             Console.WriteLine("Signature envoyé: "+ Encoding.UTF8.GetString(msgSHA1) + "\n");
                             int bytesSentSHA12 = sender.Send(msgSHA1);
                             int bytesSentSHA13 = sender.Receive(bytes);
@@ -132,6 +132,25 @@ public class Client
 
                             #endregion
                             break;
+
+                        case "5":
+
+                            #region HMACMD5
+                            byte[] msgHMACMD5 = Encoding.UTF8.GetBytes("HMACMD5<F>");
+                            int bytesSentHMACMD5 = sender.Send(msgHMACMD5);
+                            bytesRec = sender.Receive(bytes);
+                            Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+                            string tmp = HMACMD5_HASH("This is a test", SECU_KEY);
+                            Console.WriteLine(tmp);
+                            var data = Encoding.UTF8.GetBytes(tmp + "<F>");
+                            Console.WriteLine("Signature envoyé: " + Encoding.UTF8.GetString(data) + "\n");
+                            int bytesSentHMACMD51 = sender.Send(data);
+                            int bytesSentHMACMD52 = sender.Receive(bytes);
+                            Console.WriteLine("Echoed test = {0}", Encoding.UTF8.GetString(bytes, 0, bytesSentHMACMD52));
+
+                            #endregion
+                            break;
+
 
                         case "8":
 
@@ -163,7 +182,17 @@ public class Client
             Console.WriteLine(e.ToString());
         }
     }
-    public static string DES_Encrypt(string TextToEncrypt)
+
+    private static string HMACMD5_HASH(string msg, string SECU_KEY)
+    {
+        byte[] Enc = Encoding.UTF8.GetBytes(SECU_KEY);
+        var md5 = new HMACMD5(Enc);
+        byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(msg));
+        var result = BitConverter.ToString(hash).Replace("-", string.Empty);
+        return result;
+    }
+
+    private static string DES_Encrypt(string TextToEncrypt)
     {
         byte[] MyEncryptedArray = Encoding.UTF8.GetBytes(TextToEncrypt); //transfo string en bytes
         /*
@@ -193,7 +222,7 @@ public class Client
         return Convert.ToBase64String(MyresultArray, 0, MyresultArray.Length);
     }
 
-    public static string AES_encrypt(string plainText, byte[] key)
+    private static string AES_encrypt(string plainText, byte[] key)
     {
         Console.WriteLine("------------AES_encrypt--------------");
         Console.WriteLine("Texte non crypté  => " + plainText + "\n");
@@ -226,7 +255,7 @@ public class Client
         return Convert.ToBase64String(combinedIvCt);
     }
 
-    public static string AES_DH_encrypt(string plainText, byte[] DerivedKey)
+    private static string AES_DH_encrypt(string plainText, byte[] DerivedKey)
     {
         Console.WriteLine("------------AES_DH_encrypt--------------");
         Console.WriteLine("Texte non crypté  => " + plainText + "\n");
@@ -259,7 +288,7 @@ public class Client
         return Convert.ToBase64String(combinedIvCt);
     }
 
-    public static string SHA1_HASH(string TextToEncrypt)
+    private static string SHA1_HASH(string TextToEncrypt)
     {
         using SHA1 sha1 = SHA1.Create();
         var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(TextToEncrypt));
@@ -271,14 +300,14 @@ public class Client
         return sb.ToString();
     }
 
-    public static int DisplayMenu()
+    private static int DisplayMenu()
     {
         Console.WriteLine("Crypto - CLIENT\n");
         Console.WriteLine("1. Communication Brut");
         Console.WriteLine("2. Communication TripleDES");
         Console.WriteLine("3. Communication AES");
         Console.WriteLine("4. Hash SHA1");
-        Console.WriteLine("5. Authentification HMAC-MD5");
+        Console.WriteLine("5. Communication HMAC-MD5");
         Console.WriteLine("6. Communication SHA1-RSA");
         Console.WriteLine("7. Communication RSA et certificat");
         Console.WriteLine("\n8. Exit");

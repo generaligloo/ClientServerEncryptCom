@@ -162,11 +162,38 @@ public class Server
                         }
                         data = data.Remove(data.Length - 3);
                         Console.WriteLine("Signature client : {0}", data);
-                        string datadec = SHA1_HASH(SECU_KEY);
+                        string datadec = SHA1_HASH("This is a test");
                         Console.WriteLine("Signature server : {0}", datadec);
-                        string result = SHA1_compare(data, datadec);
+                        string result = HASH_compare(data, datadec);
                         Console.WriteLine(result);
                         msg = Encoding.UTF8.GetBytes(result);
+                        handler.Send(msg);
+                        data = null;
+                        #endregion 
+                        break;
+
+                    case "HMACMD5":
+                        #region HMACMD5
+                        data = null;
+                        msg = Encoding.UTF8.GetBytes("ok pour HMACMD5");
+                        handler.Send(msg);
+                        while (true)
+                        {
+                            bytes = new byte[1024];
+                            int bytesRec = handler.Receive(bytes);
+                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
+                            if (data.IndexOf("<F>") > -1)
+                            {
+                                break;
+                            }
+                        }
+                        data = data.Remove(data.Length - 3);
+                        Console.WriteLine("Signature client : {0}", data);
+                        string datadec1 = HMACMD5_HASH("This is a test", SECU_KEY);
+                        Console.WriteLine("Signature server : {0}", datadec1);
+                        string result1 = HASH_compare(data, datadec1);
+                        Console.WriteLine(result1);
+                        msg = Encoding.UTF8.GetBytes(result1);
                         handler.Send(msg);
                         data = null;
                         #endregion 
@@ -188,7 +215,7 @@ public class Server
         Console.ReadKey();
     }
 
-    private static string SHA1_compare(string data, string datadec)
+    private static string HASH_compare(string data, string datadec)
     {
         if (String.Compare(data, datadec) == 0)
         {
@@ -199,8 +226,15 @@ public class Server
             return "Signature invalide";
         }
     }
-
-    public static string SHA1_HASH(string data)
+    private static string HMACMD5_HASH(string msg, string SECU_KEY)
+    {
+        byte[] Enc = Encoding.UTF8.GetBytes(SECU_KEY);
+        var md5 = new HMACMD5(Enc);
+        byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(msg));
+        var result = BitConverter.ToString(hash).Replace("-", string.Empty);
+        return result;
+    }
+    private static string SHA1_HASH(string data)
     {
         using SHA1 sha1 = SHA1.Create();
         var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(data));
@@ -212,7 +246,7 @@ public class Server
         return sb.ToString();
     }
 
-    public static string AES_decrypt(string TextToDecrypt, byte[] key)
+    private static string AES_decrypt(string TextToDecrypt, byte[] key)
     {
         Console.WriteLine("------------AES_decrypt--------------");
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
@@ -250,7 +284,7 @@ public class Server
         return plaintext;
     }
 
-    public static string AES_DH_decrypt(string TextToDecrypt, byte[] Derivedkey)
+    private static string AES_DH_decrypt(string TextToDecrypt, byte[] Derivedkey)
     {
         Console.WriteLine("------------AES_DH_decrypt--------------");
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
@@ -288,7 +322,7 @@ public class Server
         return plaintext;
     }
 
-    public static string DES_Decrypt(string TextToDecrypt)
+    private static string DES_Decrypt(string TextToDecrypt)
     {
 
         TextToDecrypt = TextToDecrypt.Remove(TextToDecrypt.Length - 3);
@@ -318,31 +352,4 @@ public class Server
 
         return UTF8Encoding.UTF8.GetString(MyresultArray);
     }
-
-
-
-    /*
-    public static byte[] CreateRandomSalt(int length)
-    {
-        // Create a buffer
-        byte[] randBytes;
-
-        if (length >= 1)
-        {
-            randBytes = new byte[length];
-        }
-        else
-        {
-            randBytes = new byte[1];
-        }
-
-        // Create a new RNGCryptoServiceProvider.
-        RNGCryptoServiceProvider rand = new RNGCryptoServiceProvider();
-
-        // Fill the buffer with random bytes.
-        rand.GetBytes(randBytes);
-
-        // return the bytes.
-        return randBytes;
-    }*/
 }
