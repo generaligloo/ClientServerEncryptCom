@@ -117,9 +117,23 @@ public class Client
                             break;
 
                         case "4":
+
+                            #region SHA1
+                            byte[] msgSHA1 = Encoding.UTF8.GetBytes("SHA1<F>");
+                            int bytesSentSHA1 = sender.Send(msgSHA1);
+                            bytesRec = sender.Receive(bytes);
+                            Console.WriteLine("Server: {0}", Encoding.UTF8.GetString(bytes, 0, bytesRec));
+
+                            msgSHA1 = Encoding.UTF8.GetBytes(SHA1_HASH(SECU_KEY) + "<F>");
+                            Console.WriteLine("Signature envoyé: "+ Encoding.UTF8.GetString(msgSHA1) + "\n");
+                            int bytesSentSHA12 = sender.Send(msgSHA1);
+                            int bytesSentSHA13 = sender.Receive(bytes);
+                            Console.WriteLine("Echoed test = {0}", Encoding.UTF8.GetString(bytes, 0, bytesSentSHA13));
+
+                            #endregion
                             break;
 
-                        case "5":
+                        case "8":
 
                             exit = true;
 
@@ -245,15 +259,29 @@ public class Client
         return Convert.ToBase64String(combinedIvCt);
     }
 
+    public static string SHA1_HASH(string TextToEncrypt)
+    {
+        using SHA1 sha1 = SHA1.Create();
+        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(TextToEncrypt));
+        var sb = new StringBuilder(hash.Length * 2);
+        foreach (byte b in hash)
+        {
+            sb.Append(b.ToString("X2"));
+        }
+        return sb.ToString();
+    }
+
     public static int DisplayMenu()
     {
-        Console.WriteLine("Crypto - CLIENT");
-        Console.WriteLine();
+        Console.WriteLine("Crypto - CLIENT\n");
         Console.WriteLine("1. Communication Brut");
         Console.WriteLine("2. Communication TripleDES");
         Console.WriteLine("3. Communication AES");
-        Console.WriteLine("4. à venir");
-        Console.WriteLine("5. Exit");
+        Console.WriteLine("4. Hash SHA1");
+        Console.WriteLine("5. Authentification HMAC-MD5");
+        Console.WriteLine("6. Communication SHA1-RSA");
+        Console.WriteLine("7. Communication RSA et certificat");
+        Console.WriteLine("\n8. Exit");
         var result = Console.ReadLine();
         return Convert.ToInt32(result);
     }

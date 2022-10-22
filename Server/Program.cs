@@ -145,6 +145,32 @@ public class Server
                         data = null;
                         #endregion
                         break;
+                    case "SHA1":
+                        #region SHA1
+                        data = null;
+                        msg = Encoding.UTF8.GetBytes("ok pour SHA1");
+                        handler.Send(msg);
+                        while (true)
+                        {
+                            bytes = new byte[1024];
+                            int bytesRec = handler.Receive(bytes);
+                            data += Encoding.UTF8.GetString(bytes, 0, bytesRec);
+                            if (data.IndexOf("<F>") > -1)
+                            {
+                                break;
+                            }
+                        }
+                        data = data.Remove(data.Length - 3);
+                        Console.WriteLine("Signature client : {0}", data);
+                        string datadec = SHA1_HASH(SECU_KEY);
+                        Console.WriteLine("Signature server : {0}", datadec);
+                        string result = SHA1_compare(data, datadec);
+                        Console.WriteLine(result);
+                        msg = Encoding.UTF8.GetBytes(result);
+                        handler.Send(msg);
+                        data = null;
+                        #endregion 
+                        break;
                     default:
                         break;
                 }
@@ -160,6 +186,30 @@ public class Server
 
         Console.WriteLine("\n Press any key to continue...");
         Console.ReadKey();
+    }
+
+    private static string SHA1_compare(string data, string datadec)
+    {
+        if (String.Compare(data, datadec) == 0)
+        {
+            return "Signature ok";
+        }
+        else
+        {
+            return "Signature invalide";
+        }
+    }
+
+    public static string SHA1_HASH(string data)
+    {
+        using SHA1 sha1 = SHA1.Create();
+        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(data));
+        var sb = new StringBuilder(hash.Length * 2);
+        foreach (byte b in hash)
+        {
+            sb.Append(b.ToString("X2"));
+        }
+        return sb.ToString();
     }
 
     public static string AES_decrypt(string TextToDecrypt, byte[] key)
